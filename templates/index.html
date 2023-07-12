@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-Hans-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Video Streaming</title>
+    <script src="{{ url_for('static', filename='js/jquery-3.5.1.min.js') }}"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* 添加justify-content，将内容分散对齐 */
+            align-items: center;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            height: 100vh; /* 设置为浏览器视口的高度 */
+            overflow: hidden; /* 隐藏滚动条 */
+        }
+        h1 {
+            color: #333;
+            margin-top: 40px;
+        }
+        #content {
+            display: flex;
+            justify-content: space-around; /* 修改了这里，以使#video-container始终居中 */
+            align-items: flex-start; 
+            gap: 1em; 
+            margin-top: 2em;
+            width: 100%;
+            max-width: 1200px;
+        }
+        img {
+            width: 100%; /* 图片宽度自适应 */
+            height: 100%; /* 高度变为100%以适应父元素的高度 */
+            object-fit: contain; /* 保持原有的长宽比 */
+            display: block;
+        }
+        #video-container {
+            width: 66%; /* 添加了这里，使#video-container的宽度固定为总宽度的2/3 */
+            height: 60vh;
+            padding: 1em;
+            display: flex;
+            justify-content: flex-end;
+        }
+        #inference-result {
+            width: 33%; /* 添加了这里，使#inference-result的宽度固定为总宽度的1/3 */
+            height: 60vh;
+            padding: 1em;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            overflow-y: auto;  /* 添加滚动条 */
+            display: none; /* 默认隐藏 */
+            justify-content: flex-start;
+        }
+        /* 添加按钮样式 */
+        #toggle-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        /* 类别标签样式 */
+        #category-labels {
+            display: flex; /* Flexbox布局 */
+            justify-content: center; /* 中心对齐 */
+            flex-wrap: wrap; /* 超出范围时换行 */
+            margin-top: 0.5em; /* 增加边距 */
+            margin-bottom: 2.5em;
+        }
+        .category-label {
+            font-size: 1.2em; /* 加大字体 */
+            font-weight: bold; /* 字体加粗 */
+            margin: 0.5em; /* 增加边距 */
+        }
+        .category-label.selected {
+            border: 2px solid #007BFF; /* 更改边框颜色为蓝色 */
+            color: #007BFF; /* 更改字体颜色为蓝色 */
+            padding: 0 10px; /* 增加一点空间 */
+            border-radius: 5px; /* 圆角 */
+        }
+        .tooltip {
+            display: none;
+            position: absolute;
+            background-color: #f9f9f9;
+            color: black;
+            text-align: center;
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <h1>农信猪场监控分析</h1>
+    <div id="camera-selector-container">
+        <label for="camera-selector">选择视频源：</label>
+        <select id="camera-selector">
+            {% for name in camera_names %}
+                <option value="{{ name }}">{{ name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div id="content">
+        <div id="video-container">
+            <img id="camera-feed" src="{{ url_for('video', camera_name=camera_names[0] if camera_names else '') }}" alt="Streaming Video from Camera">
+        </div>
+        <div id="inference-result"></div>
+    </div>
+    <button id="toggle-button">显示/隐藏描述</button> <!-- 添加控制按钮 -->
+    <!-- <p id="category-label">Default category</p> -->
+    <div id="category-labels">
+        <span id="label-1" class="category-label">1.无特殊事件</span><div id="tooltip-1" class="tooltip">others</div>
+        <span id="label-2" class="category-label">2.打电话</span><div id="tooltip-2" class="tooltip">talk & (phone | smartphone)</div>
+        <span id="label-3" class="category-label">3.人员摔倒</span><div id="tooltip-3" class="tooltip">(lay | stretch) & (ground | floor | carpet)</div>
+        <span id="label-4" class="category-label">4.给猪做检查</span><div id="tooltip-4" class="tooltip">squat & (pig | piggy bank | pet)</div>
+        <span id="label-5" class="category-label">5.搬运猪</span><div id="tooltip-5" class="tooltip">(catch | carry) & (stand | walk) & (pig | piggy bank | pet)</div>
+        <span id="label-6" class="category-label">6.看猪</span><div id="tooltip-6" class="tooltip">!(squat & (pig | piggy bank | pet)) & !((catch | carry) & (stand | walk) & (pig | piggy bank | pet)) & (pig | piggy bank | pet)</div>
+        <span id="label-7" class="category-label">7.扫地</span><div id="tooltip-7" class="tooltip">(sweep | clean) & (broom | swab | shovel | vacuum | golf club)</div>
+        <span id="label-8" class="category-label">8.喝水</span><div id="tooltip-8" class="tooltip">drink & (beverage | alcohol | water | beer | soda | wine | bottle | can)</div>
+        <span id="label-9" class="category-label">9.使用灭火器</span><div id="tooltip-9" class="tooltip">extinguisher</div>
+    </div>
+    <script>
+        var port = "{{ port }}";
+        var ip = window.location.hostname; // 从浏览器获取 IP
+        let worker = new Worker('/static/js/worker.js');
+        
+        function updateCategory(category) {
+            // remove 'selected' class from all labels
+            $('.category-label').removeClass('selected');
+            // add 'selected' class to the current label
+            $('#label-' + category).addClass('selected');
+        }
+        
+        // 监听摄像头选择器的change事件，每次更改都向worker发送新的摄像头名称
+        $("#camera-selector").change(function() {
+            let cameraName = $(this).val();  // 获取新的摄像头名称
+            worker.postMessage({ip: ip, port: port, camera_name: cameraName});  // 将新的摄像头名称和ip_port发送给worker
+            // 更新图片元素的 src 属性以获取所选摄像头的视频
+            $("#camera-feed").attr("src", `/video/${cameraName}`);
+        });
+
+        worker.onmessage = function(event) {
+            if (event.data.type === 'inference') {
+                $('#inference-result').html(event.data.data);
+            } else if (event.data.type === 'category') {
+                updateCategory(event.data.data);
+            }
+        };
+
+        // 页面加载时，获取默认摄像头的推理结果和类别
+        let defaultCameraName = $("#camera-selector").val();
+        worker.postMessage({ip: ip, port: port, camera_name: defaultCameraName});  // 将默认摄像头名称和ip_port发送给worker
+
+        // 添加按钮点击事件监听器
+        $('#toggle-button').click(function() {
+            $('#inference-result').toggle(); // 切换描述的显示/隐藏
+        });
+        
+        // 添加鼠标事件
+        $('.category-label').on({
+        mouseenter: function () {
+            var tooltipId = '#tooltip-' + $(this).attr('id').split('-')[1];
+            $(tooltipId).css({top: $(this).position().top, left: $(this).position().left + $(this).width() + 10}).show();
+        },
+        mouseleave: function () {
+            var tooltipId = '#tooltip-' + $(this).attr('id').split('-')[1];
+            $(tooltipId).hide();
+        }
+    });
+    </script>
+</body>
+</html>
