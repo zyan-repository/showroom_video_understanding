@@ -1,7 +1,0 @@
-{
-    "CUDA_VISIBLE_DEVICES": "1",
-    "CAMERA_URIS": "BeiJing=rtsp://admin:Nxin-bgqjk@10.100.36.168:554/main",
-    "PORT": "12005",
-    "MAX_WORKERS": "1",
-    "VALID_AREA": "225,100,225,715,830,715,830,100"
-}
