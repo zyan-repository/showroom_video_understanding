@@ -1,3 +1,4 @@
 model_zoo/
 demo.mp4
 configs/configs.json
+__pycache__
