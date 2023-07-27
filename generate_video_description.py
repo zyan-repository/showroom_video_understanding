@@ -1,5 +1,6 @@
 import os
 import cv2
+import torch
 import asyncio
 import torchvision.transforms as transforms
 from PIL import Image, ImageDraw, ImageFont
@@ -190,46 +191,47 @@ class VideoDescriptionGenerator:
         english_tags = []
         chinese_tags = []
         for i in range(total_seconds):
-            best_frame = extractor.get_best_frame_in_interval(i, i + 1)
+            with torch.no_grad():
+                best_frame = extractor.get_best_frame_in_interval(i, i + 1)
 
-            predictions = predictor(best_frame)
+                predictions = predictor(best_frame)
 
-            best_frame = cv2.cvtColor(best_frame, cv2.COLOR_BGR2RGB)
-            best_frame = Image.fromarray(best_frame)
+                best_frame = cv2.cvtColor(best_frame, cv2.COLOR_BGR2RGB)
+                best_frame = Image.fromarray(best_frame)
 
-            best_frame = best_frame.resize((self.image_size, self.image_size))
-            best_frame = transform(best_frame).unsqueeze(0).to(self.device)
+                best_frame = best_frame.resize((self.image_size, self.image_size))
+                best_frame = transform(best_frame).unsqueeze(0).to(self.device)
 
-            # 生成tags
-            res_ram = inference_ram(best_frame, self.ram_model)
-            # print("Image Tags: ", res_ram[0])
-            # print("图像标签: ", res_ram[1])
-            english_tags.append(res_ram[0])
-            chinese_tags.append(res_ram[1])
-            words = res_ram[0].split(" | ")
-            tags = ','.join(words[:])  # min(5, len(words))
-            # print("tags: ", tags)
+                # 生成tags
+                res_ram = inference_ram(best_frame, self.ram_model)
+                # print("Image Tags: ", res_ram[0])
+                # print("图像标签: ", res_ram[1])
+                english_tags.append(res_ram[0])
+                chinese_tags.append(res_ram[1])
+                words = res_ram[0].split(" | ")
+                tags = ','.join(words[:])  # min(5, len(words))
+                # print("tags: ", tags)
 
-            # 生成caption
-            res_tag2text = inference_tag2text(best_frame, self.tag2text_model, tags)
-            # print("Model Identified Tags: ", res_tag2text[0])
-            # print("User Specified Tags: ", res_tag2text[1])
-            # print("Image Caption: ", res_tag2text[2])
-            caption = res_tag2text[2]
+                # 生成caption
+                res_tag2text = inference_tag2text(best_frame, self.tag2text_model, tags)
+                # print("Model Identified Tags: ", res_tag2text[0])
+                # print("User Specified Tags: ", res_tag2text[1])
+                # print("Image Caption: ", res_tag2text[2])
+                caption = res_tag2text[2]
 
-            # start_time = f"{i // 60:02d}:{i % 60:02d}"
-            # end_time = f"{(i + 1) // 60:02d}:{(i + 1) % 60:02d}"
-            # descriptions += f"{start_time}-{end_time}: {caption}.\n"
-            descriptions += f"{caption}.\n"
+                # start_time = f"{i // 60:02d}:{i % 60:02d}"
+                # end_time = f"{(i + 1) // 60:02d}:{(i + 1) % 60:02d}"
+                # descriptions += f"{start_time}-{end_time}: {caption}.\n"
+                descriptions += f"{caption}.\n"
 
-            # start_time = f"{i:02d}:{(i * 60) % 60:02d}"
-            # end_time = f"{(i + 1):02d}:{((i + 1) * 60) % 60:02d}"
-            # descriptions += f"{start_time}-{end_time}: {caption}.\n"
-            # descriptions += f"Second {i + 1}: {caption}.\n"
+                # start_time = f"{i:02d}:{(i * 60) % 60:02d}"
+                # end_time = f"{(i + 1):02d}:{((i + 1) * 60) % 60:02d}"
+                # descriptions += f"{start_time}-{end_time}: {caption}.\n"
+                # descriptions += f"Second {i + 1}: {caption}.\n"
 
-            for idx, bbox in enumerate(predictions['instances'].pred_boxes.tensor):
-                descriptions += f"{predictions['instances'].pred_object_descriptions.data[idx]}: {[int(i) for i in bbox.floor().tolist()]};"
-            descriptions += f"\n"
+                for idx, bbox in enumerate(predictions['instances'].pred_boxes.tensor):
+                    descriptions += f"{predictions['instances'].pred_object_descriptions.data[idx]}: {[int(i) for i in bbox.floor().tolist()]};"
+                descriptions += f"\n"
             # descriptions.append(caption)
             del best_frame
 

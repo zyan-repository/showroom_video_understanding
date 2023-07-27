@@ -219,6 +219,7 @@ def infer(camera_name, frame):
         app.logger.error(f"Inference error: {e}")
     finally:
         torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
     
     
 @app.route('/')

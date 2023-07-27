@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir \
     fairscale==0.4.4 \
     opencv-python \
     lvis \
-    boto3 
+    boto3
 
 RUN pip install --no-cache-dir \
     git+https://github.com/facebookresearch/detectron2.git
