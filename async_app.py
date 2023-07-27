@@ -18,20 +18,24 @@ from flask_cors import CORS
 from logging.handlers import RotatingFileHandler
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from generate_video_description import VideoFrameExtractor, VideoDescriptionGenerator, setup_cfg, DefaultPredictor
+current_file_path = os.path.abspath(__file__)
+base_path = os.path.dirname(current_file_path)
+log_path = os.path.join(base_path, 'logs', 'app.log')
+config_path = os.path.join(base_path, 'configs', 'configs.json')
 
 
 app = Flask(__name__)
 CORS(app)
 
 
-os.makedirs('logs/', exist_ok=True)
-file_handler = RotatingFileHandler('logs/app.log', maxBytes=1024*1024, backupCount=5)
+os.makedirs(os.path.join(base_path, 'logs'), exist_ok=True)
+file_handler = RotatingFileHandler(log_path, maxBytes=1024*1024, backupCount=5)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 file_handler.setFormatter(formatter)
 file_handler.setLevel(logging.ERROR)
 # 将处理器添加到app的日志记录器中
 app.logger.addHandler(file_handler)
-with open('configs/configs.json') as json_file:
+with open(config_path) as json_file:
     configs = json.load(json_file)
 os.environ["CUDA_VISIBLE_DEVICES"] = configs.get('CUDA_VISIBLE_DEVICES', "0")
 max_width, max_height = 1024, 1024
@@ -74,6 +78,9 @@ device = None
 tokenizer = None
 translate_model = None
 extractor = AppExtractor()
+ram_path = os.path.join(base_path, 'model_zoo/ram_swin_large_14m.pth')
+tag2text_path = os.path.join(base_path, 'model_zoo/tag2text_swin_14m.pth')
+translate_path = os.path.join(base_path, 'model_zoo/opus-mt-en-zh')
 
 
 def load_models():
@@ -84,15 +91,15 @@ def load_models():
     global translate_model
     
     vdg = VideoDescriptionGenerator(
-        ram_pretrained='model_zoo/ram_swin_large_14m.pth',
-        tag2text_pretrained='model_zoo/tag2text_swin_14m.pth',
+        ram_pretrained=ram_path,
+        tag2text_pretrained=tag2text_path,
         device='cuda'
     )
     cfg = setup_cfg()
     grit_predictor = DefaultPredictor(cfg)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    tokenizer = AutoTokenizer.from_pretrained("model_zoo/opus-mt-en-zh")
-    translate_model = AutoModelForSeq2SeqLM.from_pretrained("model_zoo/opus-mt-en-zh").to(device)
+    tokenizer = AutoTokenizer.from_pretrained(translate_path)
+    translate_model = AutoModelForSeq2SeqLM.from_pretrained(translate_path).to(device)
         
         
 def translate_single_sentence(inp_text, tokenizer, model, device):

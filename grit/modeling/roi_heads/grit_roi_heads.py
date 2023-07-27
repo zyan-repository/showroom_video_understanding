@@ -1,3 +1,4 @@
+import os
 import math
 import torch
 from typing import Dict, List, Optional, Tuple, Union
@@ -46,8 +47,10 @@ class GRiTROIHeadsAndTextDecoder(CascadeROIHeads):
         self.soft_nms_enabled = soft_nms_enabled
         self.test_task = test_task
         self.beam_size = beam_size
-
-        tokenizer = BertTokenizer.from_pretrained('model_zoo/bert-base-uncased/', do_lower_case=True)
+        current_file_path = os.path.abspath(__file__)
+        base_path = os.path.dirname(current_file_path)
+        bert_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(base_path))), 'model_zoo', 'bert-base-uncased')
+        tokenizer = BertTokenizer.from_pretrained(bert_path, do_lower_case=True)
         self.tokenizer = tokenizer
 
         assert test_task in train_task, 'GRiT has not been trained on {} task, ' \

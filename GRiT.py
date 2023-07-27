@@ -7,7 +7,11 @@ import torch
 
 from detectron2.config import get_cfg
 
-sys.path.insert(0, 'third_party/CenterNet2/projects/CenterNet2/')
+# sys.path.insert(0, 'third_party/CenterNet2/projects/CenterNet2/')
+current_file_path = os.path.abspath(__file__)
+base_path = os.path.dirname(current_file_path)
+centernet_module_path = os.path.join(base_path, 'third_party', 'CenterNet2', 'projects', 'CenterNet2')
+sys.path.insert(0, centernet_module_path)
 from centernet.config import add_centernet_config
 from grit.config import add_grit_config
 
@@ -25,8 +29,9 @@ def setup_cfg():
     cfg.MODEL.DEVICE = "cuda"
     add_centernet_config(cfg)
     add_grit_config(cfg)
-    cfg.merge_from_file('./configs/GRiT_B_DenseCap.yaml')
-    cfg.merge_from_list(['MODEL.WEIGHTS', 'model_zoo/grit_b_densecap.pth'])
+    cfg.merge_from_file(os.path.join(base_path, 'configs', 'GRiT_B_DenseCap.yaml'))
+    # cfg.merge_from_list(['MODEL.WEIGHTS', 'model_zoo/grit_b_densecap.pth'])
+    cfg.merge_from_list(['MODEL.WEIGHTS', os.path.join(base_path, 'model_zoo', 'grit_b_densecap.pth')])
     # Set score_threshold for builtin models
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5
     cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = 0.5
