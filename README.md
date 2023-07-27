@@ -61,4 +61,4 @@ docker run --gpus=all -d --shm-size=64g  --ulimit memlock=-1 --rm -p12005:12005 
 
 Happy video understanding!
 
-<p "center"> <img src='images/demo.png' "center"> </p>
+<img src="images/demo.png" style="vertical-align: middle;" alt="Image" />
