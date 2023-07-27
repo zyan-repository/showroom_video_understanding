@@ -24,6 +24,7 @@ app = Flask(__name__)
 CORS(app)
 
 
+os.makedirs('logs/', exist_ok=True)
 file_handler = RotatingFileHandler('logs/app.log', maxBytes=1024*1024, backupCount=5)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 file_handler.setFormatter(formatter)
